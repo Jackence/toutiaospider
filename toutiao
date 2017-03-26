@@ -1,0 +1,118 @@
+#coding:utf-8
+from bs4 import BeautifulSoup as bs
+import time as ti
+import random
+import MySQLdb
+import urllib2
+import json
+import sys
+
+headers={
+"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+"Accept-Language":"zh-CN,zh;q=0.8",
+"Cache-Control":"max-age=0",
+"Connection":"keep-alive",
+"DNT":"1",
+"Host":"www.toutiao.com",
+"Referer":"http://www.toutiao.com/",
+"Upgrade-Insecure-Requests":"1",
+"User-Agent":"Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2859.0 Safari/537.36"
+}
+
+def mysql(sql):
+    db = MySQLdb.connect("localhost","root","","mydata" )
+    # 使用cursor()方法获取操作游标
+    cursor = db.cursor()
+    # 设置编码UTF8
+    cursor.execute('SET NAMES UTF8')
+    try:
+       # 执行sql语句
+       cursor.execute(sql)
+       # 提交到数据库执行
+       db.commit()
+    except:
+       # 发生错误时回滚
+       db.rollback()
+       print sql
+       print 'excute this sql error...'
+       return 0
+    # 关闭数据库连接
+    db.close()
+
+def getart(url,comments):
+    ar=''
+    req=urllib2.Request(url,headers=headers)
+    html1=urllib2.urlopen(req).read()
+    soup=bs(html1,"html.parser")
+    art=soup.find_all('p')
+    for i in range(len(art)):
+        ar1=art[i].get_text()
+        artcontent=ar+ar1
+        artcontent=artcontent.encode("utf-8")
+        #内容
+    title=soup.find('h1',class_="article-title")
+    if(title):
+        tix1=title.get_text().strip().encode("utf-8")
+        print tix1 #标题
+    author=soup.find("span",class_="src")
+    if(author):
+        author1=author.get_text().strip().encode("utf-8")
+        print author1 #作者
+    times=soup.find("span",class_="time")
+    if(times):
+        time1=times.get_text().strip().encode("utf-8")
+        # print time1  #时间
+    comments=str(comments)
+    sql="INSERT INTO `entertainment`(`title`,`time`,`author`,`content`,`commenttimes`)VALUES('%s','%s','%s','%s','%s')" %(tix1,time1,author1,artcontent,comments)
+    mysql(sql)
+
+
+def getjson(i):
+    url="http://www.toutiao.com/api/pc/feed/?category=news_entertainment&utm_source=toutiao&widen=1&max_behot_time="
+    #替换时间戳，并重新访问
+    newurl=url+i
+   # print i
+  #  print newurl
+    req=urllib2.Request(newurl,headers=headers)
+    jscon=urllib2.urlopen(req).read()
+   # print jscon
+    print "1111"
+    js=json.loads(jscon)
+    data=js['data']
+    ne=str(js['next']['max_behot_time'])
+    #print  type(ne)
+    #print ne
+    for i in range(len(data)-1):
+        #print len(data)
+        info=data[i+1]
+       # print info
+        comments=info['comments_count']
+        if(comments>100):
+            #print i
+            id1=data[i+1]['group_id']
+            # print id1
+            #print comments
+            urlart=urlar+id1
+            print urlart
+            getart(urlart,comments)
+            print "++++"
+            ti.sleep(3)
+
+urlar='http://www.toutiao.com/a'
+
+timeinput=raw_input("输入起始时间,如:2016-10-23 10:30:30")
+timeArray = ti.strptime(timeinput, "%Y-%m-%d %H:%M:%S")
+timex=str(int(ti.mktime(timeArray)))
+for i in range(10):
+    t=int(timex)-600*(i)
+    getjson(str(t))
+    print "===="
+    ti.sleep(1)
+
+
+
+
+
+
+
+
